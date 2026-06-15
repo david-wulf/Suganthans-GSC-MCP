@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface QuickWin {
     query: string;
     clicks: number;
@@ -6,5 +7,5 @@ interface QuickWin {
     position: number;
     opportunity: number;
 }
-export declare function quickWins(days?: number, minImpressions?: number, maxPosition?: number): Promise<QuickWin[]>;
+export declare function quickWins(days?: number, minImpressions?: number, maxPosition?: number, searchType?: SearchType): Promise<QuickWin[]>;
 export {};

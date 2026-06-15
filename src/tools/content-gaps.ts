@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface ContentGap {
   query: string;
@@ -10,14 +10,17 @@ interface ContentGap {
 export async function contentGaps(
   days: number = 90,
   minImpressions: number = 50,
-  minPosition: number = 20
+  minPosition: number = 20,
+  searchType: SearchType = "web"
 ): Promise<ContentGap[]> {
+  assertValidDimensions(searchType, ["query"]);
   const { startDate, endDate } = getDateRange(days);
 
   const rows = await fetchAllRows({
     startDate,
     endDate,
     dimensions: ["query"],
+    searchType,
   });
 
   const gaps: ContentGap[] = [];

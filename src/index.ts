@@ -23,11 +23,21 @@ import { generateReport } from "./tools/generate-report.js";
 import { multiSiteDashboard } from "./tools/multi-site-dashboard.js";
 import { submitUrl, submitBatch } from "./tools/submit-url.js";
 import { submitSitemap, listSitemaps } from "./tools/submit-sitemap.js";
+import { discoverAnalysis } from "./tools/discover-analysis.js";
+import { imageAnalysis } from "./tools/image-analysis.js";
+import { searchAppearance } from "./tools/search-appearance.js";
 
 const server = new McpServer({
   name: "gsc-mcp",
   version: "2.1.0",
 });
+
+// Shared GSC surface (search type) parameter. "web" is the API default and keeps
+// every tool backwards-compatible. Page-based tools also accept "discover";
+// query-based tools accept image/video/news but not discover (no query dimension).
+const SURFACES = ["web", "image", "video", "news", "discover", "googleNews"] as const;
+const surfaceParam = (note: string) =>
+  z.enum(SURFACES).default("web").describe(note);
 
 // 1. Quick Wins
 server.tool(
@@ -37,10 +47,11 @@ server.tool(
     days: z.number().default(28).describe("Number of days to analyse"),
     min_impressions: z.number().default(100).describe("Minimum impressions threshold"),
     max_position: z.number().default(15).describe("Maximum position to include"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news. Discover is NOT supported here (no query dimension)."),
   },
-  async ({ days, min_impressions, max_position }) => {
-    const results = await quickWins(days, min_impressions, max_position);
-    const wrapped = withMeta(results, "quick_wins", { days, min_impressions, max_position });
+  async ({ days, min_impressions, max_position, surface }) => {
+    const results = await quickWins(days, min_impressions, max_position, surface);
+    const wrapped = withMeta(results, "quick_wins", { days, min_impressions, max_position, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -54,10 +65,11 @@ server.tool(
   {
     days: z.number().default(28).describe("Number of days to analyse"),
     min_impressions: z.number().default(500).describe("Minimum impressions threshold"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. Discover is page-based and supported."),
   },
-  async ({ days, min_impressions }) => {
-    const results = await ctrOpportunities(days, min_impressions);
-    const wrapped = withMeta(results, "ctr_opportunities", { days, min_impressions });
+  async ({ days, min_impressions, surface }) => {
+    const results = await ctrOpportunities(days, min_impressions, surface);
+    const wrapped = withMeta(results, "ctr_opportunities", { days, min_impressions, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -70,10 +82,11 @@ server.tool(
   "Find pages that lost the most traffic recently. Compares current period vs prior period and diagnoses whether each drop is a ranking loss, CTR collapse, or demand decline." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
   {
     days: z.number().default(28).describe("Number of days per period to compare"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. Discover is page-based and supported."),
   },
-  async ({ days }) => {
-    const results = await trafficDrops(days);
-    const wrapped = withMeta(results, "traffic_drops", { days });
+  async ({ days, surface }) => {
+    const results = await trafficDrops(days, surface);
+    const wrapped = withMeta(results, "traffic_drops", { days, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -88,10 +101,11 @@ server.tool(
     days: z.number().default(90).describe("Number of days to analyse"),
     min_impressions: z.number().default(50).describe("Minimum impressions threshold"),
     min_position: z.number().default(20).describe("Minimum position (queries ranking worse than this)"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news. Discover is NOT supported here (no query dimension)."),
   },
-  async ({ days, min_impressions, min_position }) => {
-    const results = await contentGaps(days, min_impressions, min_position);
-    const wrapped = withMeta(results, "content_gaps", { days, min_impressions, min_position });
+  async ({ days, min_impressions, min_position, surface }) => {
+    const results = await contentGaps(days, min_impressions, min_position, surface);
+    const wrapped = withMeta(results, "content_gaps", { days, min_impressions, min_position, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -137,10 +151,11 @@ server.tool(
   {
     days: z.number().default(28).describe("Number of days to analyse"),
     min_impressions: z.number().default(50).describe("Minimum combined impressions for a query"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news. Discover is NOT supported here (no query dimension)."),
   },
-  async ({ days, min_impressions }) => {
-    const results = await cannibalizationCheck(days, min_impressions);
-    const wrapped = withMeta(results, "cannibalization_check", { days, min_impressions });
+  async ({ days, min_impressions, surface }) => {
+    const results = await cannibalizationCheck(days, min_impressions, surface);
+    const wrapped = withMeta(results, "cannibalization_check", { days, min_impressions, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -151,10 +166,12 @@ server.tool(
 server.tool(
   "content_decay",
   "Find pages that are slowly dying with consistent traffic decline over three consecutive 30-day periods. One bad month is noise; three consecutive bad months is a problem." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
-  {},
-  async () => {
-    const results = await contentDecay();
-    const wrapped = withMeta(results, "content_decay", {});
+  {
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. Discover is page-based and supported."),
+  },
+  async ({ surface }) => {
+    const results = await contentDecay(surface);
+    const wrapped = withMeta(results, "content_decay", { surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -168,10 +185,11 @@ server.tool(
   {
     path_pattern: z.string().describe("URL path pattern to match (e.g. /blog/seo)"),
     days: z.number().default(28).describe("Number of days to analyse"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. On Discover only page-level data is returned (no queries)."),
   },
-  async ({ path_pattern, days }) => {
-    const results = await topicClusterPerformance(path_pattern, days);
-    const wrapped = withMeta(results, "topic_cluster_performance", { path_pattern, days });
+  async ({ path_pattern, days, surface }) => {
+    const results = await topicClusterPerformance(path_pattern, days, surface);
+    const wrapped = withMeta(results, "topic_cluster_performance", { path_pattern, days, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -185,10 +203,11 @@ server.tool(
   {
     days: z.number().default(28).describe("Number of days to analyse"),
     min_impressions: z.number().default(200).describe("Minimum impressions threshold"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. Discover is page-based and supported."),
   },
-  async ({ days, min_impressions }) => {
-    const results = await ctrVsBenchmark(days, min_impressions);
-    const wrapped = withMeta(results, "ctr_vs_benchmark", { days, min_impressions });
+  async ({ days, min_impressions, surface }) => {
+    const results = await ctrVsBenchmark(days, min_impressions, surface);
+    const wrapped = withMeta(results, "ctr_vs_benchmark", { days, min_impressions, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -206,9 +225,10 @@ server.tool(
     url: z.string().optional().describe("Filter to a specific URL"),
     query: z.string().optional().describe("Filter to a specific search query"),
     days: z.number().default(28).describe("Number of days to check"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover. On Discover only page-level data is returned (no queries)."),
   },
-  async ({ claim, metric, expected_value, url, query, days }) => {
-    const results = await verifyClaim(claim, metric, expected_value, url, query, days);
+  async ({ claim, metric, expected_value, url, query, days, surface }) => {
+    const results = await verifyClaim(claim, metric, expected_value, url, query, days, surface);
     return {
       content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
     };
@@ -231,10 +251,11 @@ server.tool(
     order_by: z.string().default("clicks").describe("Sort by: clicks, impressions, ctr, position"),
     order_direction: z.string().default("descending").describe("Sort direction: ascending, descending"),
     site_url: z.string().optional().describe("Override the default site URL"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news, discover, googleNews. Dimensions must be valid for the chosen surface."),
   },
-  async ({ days, dimensions, filters, row_limit, order_by, order_direction, site_url }) => {
-    const results = await advancedSearchAnalytics(days, dimensions, filters, row_limit, order_by, order_direction, site_url);
-    const wrapped = withMeta(results, "advanced_search_analytics", { days, dimensions, filters, row_limit, order_by });
+  async ({ days, dimensions, filters, row_limit, order_by, order_direction, site_url, surface }) => {
+    const results = await advancedSearchAnalytics(days, dimensions, filters, row_limit, order_by, order_direction, site_url, surface);
+    const wrapped = withMeta(results, "advanced_search_analytics", { days, dimensions, filters, row_limit, order_by, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -250,10 +271,11 @@ server.tool(
     position_drop_threshold: z.number().default(20).describe("Alert if position drops more than this many spots"),
     ctr_drop_threshold: z.number().default(50).describe("Alert if CTR drops more than this percentage"),
     click_drop_threshold: z.number().default(30).describe("Alert if clicks drop more than this percentage"),
+    surface: surfaceParam("Surface to query: web (default), image, video, news. Discover is NOT supported here (no query dimension)."),
   },
-  async ({ days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold }) => {
-    const results = await checkAlerts(days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold);
-    const wrapped = withMeta(results, "check_alerts", { days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold });
+  async ({ days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold, surface }) => {
+    const results = await checkAlerts(days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold, surface);
+    const wrapped = withMeta(results, "check_alerts", { days, position_drop_threshold, ctr_drop_threshold, click_drop_threshold, surface });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };
@@ -366,6 +388,63 @@ server.tool(
   async () => {
     const results = await listSitemaps();
     const wrapped = withMeta(results, "list_sitemaps", {});
+    return {
+      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
+    };
+  }
+);
+
+// 21. Discover Analysis (isolated)
+server.tool(
+  "discover_analysis",
+  "Analyse Google Discover performance in isolation (type=discover). Discover is feed-based, not query-based, so this returns top pages, country split and a daily clicks/impressions trend with a prior-period comparison. No query-level data or position exists for Discover." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
+  {
+    days: z.number().default(28).describe("Number of days per period to compare"),
+    row_limit: z.number().default(50).describe("Max number of top pages to return"),
+    site_url: z.string().optional().describe("Override the configured property"),
+  },
+  async ({ days, row_limit, site_url }) => {
+    const results = await discoverAnalysis(days, row_limit, site_url);
+    const wrapped = withMeta(results, "discover_analysis", { days, row_limit, site_url });
+    return {
+      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
+    };
+  }
+);
+
+// 22. Image Analysis (isolated)
+server.tool(
+  "image_analysis",
+  "Analyse Google Image search performance in isolation (type=image). Returns top image queries, top pages and a prior-period comparison. Separate from web search data." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
+  {
+    days: z.number().default(28).describe("Number of days per period to compare"),
+    row_limit: z.number().default(50).describe("Max number of top queries/pages to return"),
+    site_url: z.string().optional().describe("Override the configured property"),
+  },
+  async ({ days, row_limit, site_url }) => {
+    const results = await imageAnalysis(days, row_limit, site_url);
+    const wrapped = withMeta(results, "image_analysis", { days, row_limit, site_url });
+    return {
+      content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
+    };
+  }
+);
+
+// 23. Search Appearance / Merchant Listings (isolated)
+server.tool(
+  "search_appearance",
+  "Break down performance by search-appearance / rich-result type (the searchAppearance dimension), e.g. MERCHANT_LISTINGS (Händlereinträge), PRODUCT_SNIPPETS, REVIEW_SNIPPET, RECIPE_FEATURE. Without an appearance argument it lists all appearance types with their metrics. Pass an appearance value to drill into the pages or queries driving that specific type." + GUARDRAIL_SUFFIX + VISUAL_SUFFIX,
+  {
+    days: z.number().default(28).describe("Number of days to analyse"),
+    appearance: z.string().optional().describe("Appearance type to drill into, e.g. MERCHANT_LISTINGS. Omit for the full breakdown."),
+    drill_dimension: z.enum(["page", "query"]).default("page").describe("When drilling into an appearance, group by page or query"),
+    search_type: z.enum(["web", "image", "video", "news", "discover", "googleNews"]).default("web").describe("Surface to query the appearance breakdown for"),
+    row_limit: z.number().default(50).describe("Max number of drilldown rows to return"),
+    site_url: z.string().optional().describe("Override the configured property"),
+  },
+  async ({ days, appearance, drill_dimension, search_type, row_limit, site_url }) => {
+    const results = await searchAppearance(days, appearance, drill_dimension, search_type, row_limit, site_url);
+    const wrapped = withMeta(results, "search_appearance", { days, appearance, drill_dimension, search_type, row_limit, site_url });
     return {
       content: [{ type: "text", text: JSON.stringify(wrapped, null, 2) }],
     };

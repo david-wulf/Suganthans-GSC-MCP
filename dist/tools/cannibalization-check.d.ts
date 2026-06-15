@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface CannibalizationIssue {
     query: string;
     totalImpressions: number;
@@ -8,5 +9,5 @@ interface CannibalizationIssue {
         position: number;
     }>;
 }
-export declare function cannibalizationCheck(days?: number, minImpressions?: number): Promise<CannibalizationIssue[]>;
+export declare function cannibalizationCheck(days?: number, minImpressions?: number, searchType?: SearchType): Promise<CannibalizationIssue[]>;
 export {};

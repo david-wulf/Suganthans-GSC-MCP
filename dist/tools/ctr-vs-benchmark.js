@@ -10,12 +10,14 @@ function benchmarkCtr(pos) {
         return BENCHMARK_CTR[Math.floor(pos) - 1];
     return Math.max(0.005, 0.025 - (pos - 10) * 0.002);
 }
-async function ctrVsBenchmark(days = 28, minImpressions = 200) {
+async function ctrVsBenchmark(days = 28, minImpressions = 200, searchType = "web") {
+    (0, analytics_js_1.assertValidDimensions)(searchType, ["page"]);
     const { startDate, endDate } = (0, analytics_js_1.getDateRange)(days);
     const rows = await (0, analytics_js_1.fetchAllRows)({
         startDate,
         endDate,
         dimensions: ["page"],
+        searchType,
     });
     const results = [];
     for (const row of rows) {

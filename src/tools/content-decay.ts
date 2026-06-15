@@ -1,4 +1,4 @@
-import { fetchAllRows } from "../analytics.js";
+import { fetchAllRows, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface DecayingPage {
   page: string;
@@ -16,7 +16,10 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-export async function contentDecay(): Promise<DecayingPage[]> {
+export async function contentDecay(
+  searchType: SearchType = "web"
+): Promise<DecayingPage[]> {
+  assertValidDimensions(searchType, ["page"]);
   const now = new Date();
   now.setDate(now.getDate() - 1); // yesterday
 
@@ -38,9 +41,9 @@ export async function contentDecay(): Promise<DecayingPage[]> {
   p3Start.setDate(p3Start.getDate() - 29);
 
   const [rows1, rows2, rows3] = await Promise.all([
-    fetchAllRows({ startDate: formatDate(p1Start), endDate: formatDate(p1End), dimensions: ["page"] }),
-    fetchAllRows({ startDate: formatDate(p2Start), endDate: formatDate(p2End), dimensions: ["page"] }),
-    fetchAllRows({ startDate: formatDate(p3Start), endDate: formatDate(p3End), dimensions: ["page"] }),
+    fetchAllRows({ startDate: formatDate(p1Start), endDate: formatDate(p1End), dimensions: ["page"], searchType }),
+    fetchAllRows({ startDate: formatDate(p2Start), endDate: formatDate(p2End), dimensions: ["page"], searchType }),
+    fetchAllRows({ startDate: formatDate(p3Start), endDate: formatDate(p3End), dimensions: ["page"], searchType }),
   ]);
 
   const toMap = (rows: typeof rows1) => {

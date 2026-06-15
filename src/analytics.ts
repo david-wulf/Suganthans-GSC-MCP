@@ -1,5 +1,27 @@
 import { getSearchConsoleClient, getConfig } from "./auth.js";
 
+/**
+ * GSC search types. The API defaults to "web" when type is omitted, which is
+ * why every legacy tool only ever sees web data. Set this explicitly to query
+ * Discover, Image, Video or News surfaces in isolation.
+ */
+export type SearchType = "web" | "image" | "video" | "news" | "discover" | "googleNews";
+
+/**
+ * Dimensions the API actually allows per surface. Used for a friendly guard so
+ * an invalid combination fails with a clear message instead of an opaque 400.
+ * (searchAppearance is special: it must be the ONLY grouping dimension.)
+ */
+export const ALLOWED_DIMENSIONS: Record<SearchType, string[]> = {
+  web: ["query", "page", "country", "device", "date", "searchAppearance"],
+  image: ["query", "page", "country", "device", "date", "searchAppearance"],
+  video: ["query", "page", "country", "device", "date", "searchAppearance"],
+  news: ["query", "page", "country", "device", "date"],
+  // Discover is not query-based: no "query", no "device".
+  discover: ["page", "country", "date", "searchAppearance"],
+  googleNews: ["page", "country", "date"],
+};
+
 export interface SearchAnalyticsRow {
   keys: string[];
   clicks: number;
@@ -12,6 +34,8 @@ export interface QueryParams {
   startDate: string;
   endDate: string;
   dimensions: string[];
+  /** Surface to query. Omit for "web" (the API default). */
+  searchType?: SearchType;
   dimensionFilterGroups?: Array<{
     filters: Array<{
       dimension: string;
@@ -20,6 +44,27 @@ export interface QueryParams {
     }>;
   }>;
   rowLimit?: number;
+}
+
+/**
+ * Validates that the requested dimensions are legal for the chosen surface.
+ * Throws a descriptive error instead of letting the API return a generic 400.
+ */
+export function assertValidDimensions(searchType: SearchType, dimensions: string[]): void {
+  const allowed = ALLOWED_DIMENSIONS[searchType];
+  const invalid = dimensions.filter((d) => !allowed.includes(d));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Dimension(s) [${invalid.join(", ")}] are not supported for searchType "${searchType}". ` +
+        `Allowed: [${allowed.join(", ")}].`
+    );
+  }
+  if (dimensions.includes("searchAppearance") && dimensions.length > 1) {
+    throw new Error(
+      `"searchAppearance" must be the only grouping dimension. ` +
+        `To break a single appearance down by page/query, filter on searchAppearance instead.`
+    );
+  }
 }
 
 function formatDate(date: Date): string {
@@ -72,6 +117,7 @@ export async function fetchAllRows(params: QueryParams, siteUrlOverride?: string
         startDate: params.startDate,
         endDate: params.endDate,
         dimensions: params.dimensions,
+        type: params.searchType, // undefined => API default "web"
         dimensionFilterGroups: params.dimensionFilterGroups,
         rowLimit: pageSize,
         startRow,

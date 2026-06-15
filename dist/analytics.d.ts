@@ -1,3 +1,15 @@
+/**
+ * GSC search types. The API defaults to "web" when type is omitted, which is
+ * why every legacy tool only ever sees web data. Set this explicitly to query
+ * Discover, Image, Video or News surfaces in isolation.
+ */
+export type SearchType = "web" | "image" | "video" | "news" | "discover" | "googleNews";
+/**
+ * Dimensions the API actually allows per surface. Used for a friendly guard so
+ * an invalid combination fails with a clear message instead of an opaque 400.
+ * (searchAppearance is special: it must be the ONLY grouping dimension.)
+ */
+export declare const ALLOWED_DIMENSIONS: Record<SearchType, string[]>;
 export interface SearchAnalyticsRow {
     keys: string[];
     clicks: number;
@@ -9,6 +21,8 @@ export interface QueryParams {
     startDate: string;
     endDate: string;
     dimensions: string[];
+    /** Surface to query. Omit for "web" (the API default). */
+    searchType?: SearchType;
     dimensionFilterGroups?: Array<{
         filters: Array<{
             dimension: string;
@@ -18,6 +32,11 @@ export interface QueryParams {
     }>;
     rowLimit?: number;
 }
+/**
+ * Validates that the requested dimensions are legal for the chosen surface.
+ * Throws a descriptive error instead of letting the API return a generic 400.
+ */
+export declare function assertValidDimensions(searchType: SearchType, dimensions: string[]): void;
 export declare function getDateRange(days: number): {
     startDate: string;
     endDate: string;

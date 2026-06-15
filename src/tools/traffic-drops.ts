@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange, getPriorDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, getPriorDateRange, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface TrafficDrop {
   page: string;
@@ -11,13 +11,17 @@ interface TrafficDrop {
   diagnosis: string;
 }
 
-export async function trafficDrops(days: number = 28): Promise<TrafficDrop[]> {
+export async function trafficDrops(
+  days: number = 28,
+  searchType: SearchType = "web"
+): Promise<TrafficDrop[]> {
+  assertValidDimensions(searchType, ["page"]);
   const current = getDateRange(days);
   const prior = getPriorDateRange(days);
 
   const [currentRows, priorRows] = await Promise.all([
-    fetchAllRows({ startDate: current.startDate, endDate: current.endDate, dimensions: ["page"] }),
-    fetchAllRows({ startDate: prior.startDate, endDate: prior.endDate, dimensions: ["page"] }),
+    fetchAllRows({ startDate: current.startDate, endDate: current.endDate, dimensions: ["page"], searchType }),
+    fetchAllRows({ startDate: prior.startDate, endDate: prior.endDate, dimensions: ["page"], searchType }),
   ]);
 
   const priorMap = new Map<string, { clicks: number; position: number; ctr: number }>();

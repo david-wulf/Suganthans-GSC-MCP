@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface ClusterPerformance {
     pathPattern: string;
     totalClicks: number;
@@ -18,5 +19,5 @@ interface ClusterPerformance {
         position: number;
     }>;
 }
-export declare function topicClusterPerformance(pathPattern: string, days?: number): Promise<ClusterPerformance>;
+export declare function topicClusterPerformance(pathPattern: string, days?: number, searchType?: SearchType): Promise<ClusterPerformance>;
 export {};
