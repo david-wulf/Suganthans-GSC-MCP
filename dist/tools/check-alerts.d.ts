@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface Alert {
     severity: "critical" | "warning" | "info";
     type: "position_drop" | "ctr_drop" | "click_drop" | "disappeared";
@@ -26,5 +27,5 @@ interface AlertResult {
         clickDrop: number;
     };
 }
-export declare function checkAlerts(days?: number, positionDropThreshold?: number, ctrDropThreshold?: number, clickDropThreshold?: number): Promise<AlertResult>;
+export declare function checkAlerts(days?: number, positionDropThreshold?: number, ctrDropThreshold?: number, clickDropThreshold?: number, searchType?: SearchType): Promise<AlertResult>;
 export {};

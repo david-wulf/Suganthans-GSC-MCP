@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchType, ALLOWED_DIMENSIONS } from "../analytics.js";
 
 interface ClusterPerformance {
   pathPattern: string;
@@ -13,15 +13,18 @@ interface ClusterPerformance {
 
 export async function topicClusterPerformance(
   pathPattern: string,
-  days: number = 28
+  days: number = 28,
+  searchType: SearchType = "web"
 ): Promise<ClusterPerformance> {
   const { startDate, endDate } = getDateRange(days);
+  const supportsQuery = ALLOWED_DIMENSIONS[searchType].includes("query");
 
   // Fetch page-level data filtered by URL pattern
   const pageRows = await fetchAllRows({
     startDate,
     endDate,
     dimensions: ["page"],
+    searchType,
     dimensionFilterGroups: [
       {
         filters: [
@@ -35,23 +38,27 @@ export async function topicClusterPerformance(
     ],
   });
 
-  // Fetch query-level data filtered by URL pattern
-  const queryRows = await fetchAllRows({
-    startDate,
-    endDate,
-    dimensions: ["query"],
-    dimensionFilterGroups: [
-      {
-        filters: [
+  // Fetch query-level data filtered by URL pattern.
+  // Surfaces like Discover have no query dimension, so skip it there.
+  const queryRows = supportsQuery
+    ? await fetchAllRows({
+        startDate,
+        endDate,
+        dimensions: ["query"],
+        searchType,
+        dimensionFilterGroups: [
           {
-            dimension: "page",
-            operator: "contains",
-            expression: pathPattern,
+            filters: [
+              {
+                dimension: "page",
+                operator: "contains",
+                expression: pathPattern,
+              },
+            ],
           },
         ],
-      },
-    ],
-  });
+      })
+    : [];
 
   let totalClicks = 0;
   let totalImpressions = 0;

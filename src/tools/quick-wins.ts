@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface QuickWin {
   query: string;
@@ -21,14 +21,17 @@ function expectedCtrAtPosition(pos: number): number {
 export async function quickWins(
   days: number = 28,
   minImpressions: number = 100,
-  maxPosition: number = 15
+  maxPosition: number = 15,
+  searchType: SearchType = "web"
 ): Promise<QuickWin[]> {
+  assertValidDimensions(searchType, ["query"]);
   const { startDate, endDate } = getDateRange(days);
 
   const rows = await fetchAllRows({
     startDate,
     endDate,
     dimensions: ["query"],
+    searchType,
   });
 
   const wins: QuickWin[] = [];

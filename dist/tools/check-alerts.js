@@ -2,13 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkAlerts = checkAlerts;
 const analytics_js_1 = require("../analytics.js");
-async function checkAlerts(days = 7, positionDropThreshold = 20, ctrDropThreshold = 50, clickDropThreshold = 30) {
+async function checkAlerts(days = 7, positionDropThreshold = 20, ctrDropThreshold = 50, clickDropThreshold = 30, searchType = "web") {
+    (0, analytics_js_1.assertValidDimensions)(searchType, ["query", "page"]);
     const current = (0, analytics_js_1.getDateRange)(days);
     const prior = (0, analytics_js_1.getPriorDateRange)(days);
     // Fetch query+page level data for both periods
     const [currentRows, priorRows] = await Promise.all([
-        (0, analytics_js_1.fetchAllRows)({ startDate: current.startDate, endDate: current.endDate, dimensions: ["query", "page"] }),
-        (0, analytics_js_1.fetchAllRows)({ startDate: prior.startDate, endDate: prior.endDate, dimensions: ["query", "page"] }),
+        (0, analytics_js_1.fetchAllRows)({ startDate: current.startDate, endDate: current.endDate, dimensions: ["query", "page"], searchType }),
+        (0, analytics_js_1.fetchAllRows)({ startDate: prior.startDate, endDate: prior.endDate, dimensions: ["query", "page"], searchType }),
     ]);
     // Build prior period lookup: key = "query|||page"
     const priorMap = new Map();

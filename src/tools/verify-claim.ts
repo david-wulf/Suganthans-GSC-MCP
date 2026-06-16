@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface VerificationResult {
   claim: string;
@@ -22,7 +22,8 @@ export async function verifyClaim(
   expectedValue: number,
   url?: string,
   query?: string,
-  days: number = 28
+  days: number = 28,
+  searchType: SearchType = "web"
 ): Promise<VerificationResult> {
   const { startDate, endDate } = getDateRange(days);
 
@@ -51,10 +52,14 @@ export async function verifyClaim(
     });
   }
 
+  const effectiveDimensions = dimensions.length > 0 ? dimensions : ["date"];
+  assertValidDimensions(searchType, effectiveDimensions);
+
   const rows = await fetchAllRows({
     startDate,
     endDate,
-    dimensions: dimensions.length > 0 ? dimensions : ["date"],
+    dimensions: effectiveDimensions,
+    searchType,
     dimensionFilterGroups: filters.length > 0 ? filters : undefined,
   });
 

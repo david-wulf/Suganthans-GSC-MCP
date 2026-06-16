@@ -1,9 +1,41 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ALLOWED_DIMENSIONS = void 0;
+exports.assertValidDimensions = assertValidDimensions;
 exports.getDateRange = getDateRange;
 exports.getPriorDateRange = getPriorDateRange;
 exports.fetchAllRows = fetchAllRows;
 const auth_js_1 = require("./auth.js");
+/**
+ * Dimensions the API actually allows per surface. Used for a friendly guard so
+ * an invalid combination fails with a clear message instead of an opaque 400.
+ * (searchAppearance is special: it must be the ONLY grouping dimension.)
+ */
+exports.ALLOWED_DIMENSIONS = {
+    web: ["query", "page", "country", "device", "date", "searchAppearance"],
+    image: ["query", "page", "country", "device", "date", "searchAppearance"],
+    video: ["query", "page", "country", "device", "date", "searchAppearance"],
+    news: ["query", "page", "country", "device", "date"],
+    // Discover is not query-based: no "query", no "device".
+    discover: ["page", "country", "date", "searchAppearance"],
+    googleNews: ["page", "country", "date"],
+};
+/**
+ * Validates that the requested dimensions are legal for the chosen surface.
+ * Throws a descriptive error instead of letting the API return a generic 400.
+ */
+function assertValidDimensions(searchType, dimensions) {
+    const allowed = exports.ALLOWED_DIMENSIONS[searchType];
+    const invalid = dimensions.filter((d) => !allowed.includes(d));
+    if (invalid.length > 0) {
+        throw new Error(`Dimension(s) [${invalid.join(", ")}] are not supported for searchType "${searchType}". ` +
+            `Allowed: [${allowed.join(", ")}].`);
+    }
+    if (dimensions.includes("searchAppearance") && dimensions.length > 1) {
+        throw new Error(`"searchAppearance" must be the only grouping dimension. ` +
+            `To break a single appearance down by page/query, filter on searchAppearance instead.`);
+    }
+}
 function formatDate(date) {
     return date.toISOString().split("T")[0];
 }
@@ -48,6 +80,7 @@ async function fetchAllRows(params, siteUrlOverride) {
                 startDate: params.startDate,
                 endDate: params.endDate,
                 dimensions: params.dimensions,
+                type: params.searchType, // undefined => API default "web"
                 dimensionFilterGroups: params.dimensionFilterGroups,
                 rowLimit: pageSize,
                 startRow,

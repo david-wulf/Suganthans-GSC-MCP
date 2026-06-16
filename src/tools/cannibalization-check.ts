@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface CannibalizationIssue {
   query: string;
@@ -13,14 +13,17 @@ interface CannibalizationIssue {
 
 export async function cannibalizationCheck(
   days: number = 28,
-  minImpressions: number = 50
+  minImpressions: number = 50,
+  searchType: SearchType = "web"
 ): Promise<CannibalizationIssue[]> {
+  assertValidDimensions(searchType, ["query", "page"]);
   const { startDate, endDate } = getDateRange(days);
 
   const rows = await fetchAllRows({
     startDate,
     endDate,
     dimensions: ["query", "page"],
+    searchType,
   });
 
   // Group by query

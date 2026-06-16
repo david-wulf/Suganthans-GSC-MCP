@@ -1,4 +1,4 @@
-import { fetchAllRows, getDateRange, SearchAnalyticsRow } from "../analytics.js";
+import { fetchAllRows, getDateRange, SearchAnalyticsRow, SearchType, assertValidDimensions } from "../analytics.js";
 
 interface Filter {
   dimension: string;
@@ -27,8 +27,10 @@ export async function advancedSearchAnalytics(
   rowLimit: number = 100,
   orderBy: string = "clicks",
   orderDirection: string = "descending",
-  siteUrl?: string
+  siteUrl?: string,
+  searchType: SearchType = "web"
 ): Promise<AdvancedSearchResult> {
+  assertValidDimensions(searchType, dimensions);
   const { startDate, endDate } = getDateRange(days);
 
   // Build dimension filter groups from user-provided filters
@@ -47,6 +49,7 @@ export async function advancedSearchAnalytics(
       startDate,
       endDate,
       dimensions,
+      searchType,
       dimensionFilterGroups,
     },
     siteUrl

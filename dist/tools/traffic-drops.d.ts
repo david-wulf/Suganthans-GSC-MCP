@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface TrafficDrop {
     page: string;
     currentClicks: number;
@@ -8,5 +9,5 @@ interface TrafficDrop {
     positionChange: number;
     diagnosis: string;
 }
-export declare function trafficDrops(days?: number): Promise<TrafficDrop[]>;
+export declare function trafficDrops(days?: number, searchType?: SearchType): Promise<TrafficDrop[]>;
 export {};

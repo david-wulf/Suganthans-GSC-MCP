@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface CtrOpportunity {
     page: string;
     clicks: number;
@@ -8,5 +9,5 @@ interface CtrOpportunity {
     ctrGap: number;
     potentialExtraClicks: number;
 }
-export declare function ctrOpportunities(days?: number, minImpressions?: number): Promise<CtrOpportunity[]>;
+export declare function ctrOpportunities(days?: number, minImpressions?: number, searchType?: SearchType): Promise<CtrOpportunity[]>;
 export {};

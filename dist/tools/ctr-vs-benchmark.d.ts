@@ -1,3 +1,4 @@
+import { SearchType } from "../analytics.js";
 interface CtrBenchmarkResult {
     page: string;
     clicks: number;
@@ -8,5 +9,5 @@ interface CtrBenchmarkResult {
     gap: number;
     verdict: string;
 }
-export declare function ctrVsBenchmark(days?: number, minImpressions?: number): Promise<CtrBenchmarkResult[]>;
+export declare function ctrVsBenchmark(days?: number, minImpressions?: number, searchType?: SearchType): Promise<CtrBenchmarkResult[]>;
 export {};
